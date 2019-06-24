@@ -36,16 +36,16 @@ device = "cuda"
 
 # --->>> Training parameters
 BATCH_SIZE = 128
-MAX_EPOCHS = 15
+MAX_EPOCHS = 350
 
 
 def adjust_learning_rate(optimizer, epoch):
-    if epoch < 5:
+    if epoch <= 150:
         lr = 0.1
-    elif epoch < 10:
+    elif epoch <= 250:
         lr = 0.01
-    elif epoch < MAX_EPOCHS:
-        lr = 0.01
+    elif epoch <= MAX_EPOCHS:
+        lr = 0.001
     else:
         assert False
     for param_group in optimizer.param_groups:
@@ -59,30 +59,36 @@ model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 model.avgpool = nn.AdaptiveAvgPool2d(1)
 model.to(device=device)
 
-optimizer = SGD(model.parameters(), lr=0.01, momentum=0.9)
+optimizer = SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)
 
 criterion = nn.CrossEntropyLoss()
 
 # data
-transform = transforms.Compose([transforms.ToTensor(),
-                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+transform_train = transforms.Compose([transforms.RandomCrop(32, padding=4),
+                                      transforms.RandomHorizontalFlip(),
+                                      transforms.ToTensor(),
+                                      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+transform_test = transforms.Compose([transforms.ToTensor(),
+                                     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-trainset = CIFAR10(root='./data', train=True, transform=transform)
+trainset = CIFAR10(root='./data', train=True, transform=transform_train)
 train_loader = DataLoader(trainset, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
 
-valset = CIFAR10(root='./data', train=False, transform=transform)
+valset = CIFAR10(root='./data', train=False, transform=transform_test)
 val_loader = DataLoader(valset, batch_size=BATCH_SIZE, shuffle=False, num_workers=2)
 
-rnd_indcs = np.random.permutation(np.arange(len(valset)))
-train_subset = Subset(trainset, indices=rnd_indcs)
+train_subset = Subset(CIFAR10(root='./data', train=True, transform=transform_test),
+                      indices=np.random.permutation(np.arange(len(valset))))
 train_eval_loader = DataLoader(train_subset, batch_size=BATCH_SIZE, shuffle=False, num_workers=2)
 
 
 # --->>> Callbacks
 def update_lr_scheduler(engine):
     lr = adjust_learning_rate(optimizer, engine.state.epoch)
-    print_with_time("Learning rate: {}".format(lr))
-    writer.add_scalar('lr', lr, global_step=engine.state.epoch)
+    iteration_on_epoch = (engine.state.iteration - 1) % len(train_loader) + 1
+    if iteration_on_epoch % log_interval == 0:
+        print_with_time("Learning rate: {}".format(lr))
+        writer.add_scalar('lr', lr, global_step=engine.state.iteration)
 
 
 def log_loss_during_training(engine):
@@ -122,7 +128,7 @@ def compute_and_log_metrics_on_val(engine):
 trainer = create_supervised_trainer(model, optimizer, criterion, device=device)
 
 # attach callbacks
-trainer.add_event_handler(Events.EPOCH_STARTED, update_lr_scheduler)
+trainer.add_event_handler(Events.ITERATION_STARTED, update_lr_scheduler)
 
 trainer.add_event_handler(Events.ITERATION_STARTED, log_loss_during_training)
 
