@@ -7,7 +7,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Subset
-from torch.optim import SGD
+from torch.optim import SGD, Adam
 from torchvision import transforms
 from torchvision.models import resnet50
 from torchvision.datasets import CIFAR10
@@ -37,15 +37,16 @@ device = "cuda"
 # --->>> Training parameters
 BATCH_SIZE = 128
 MAX_EPOCHS = 350
+BASE_LR = 0.1
 
 
 def adjust_learning_rate(optimizer, epoch):
     if epoch <= 150:
-        lr = 0.1
+        lr = BASE_LR
     elif epoch <= 250:
-        lr = 0.01
+        lr = BASE_LR * 0.1
     elif epoch <= MAX_EPOCHS:
-        lr = 0.001
+        lr = BASE_LR * 0.1**2
     else:
         assert False
     for param_group in optimizer.param_groups:
@@ -59,7 +60,7 @@ model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 model.avgpool = nn.AdaptiveAvgPool2d(1)
 model.to(device=device)
 
-optimizer = SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=5e-4)
+optimizer = SGD(model.parameters(), lr=BASE_LR, momentum=0.9, weight_decay=5e-4)
 
 criterion = nn.CrossEntropyLoss()
 
