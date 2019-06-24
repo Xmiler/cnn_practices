@@ -28,6 +28,7 @@ EXPERIMENT_NAME = 'cifar_resnet50'
 
 # --->>> Service parameters
 np.random.seed(0xDEADFACE)
+torch.manual_seed(0xDEADFACE)
 output_path = './snapshots/'
 writer = SummaryWriter(os.path.join(output_path, 'tensorboard', EXPERIMENT_NAME))
 log_interval = 50
