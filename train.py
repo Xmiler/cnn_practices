@@ -25,7 +25,7 @@ def print_with_time(string):
 
 
 print(' ================= Initialization ================= ')
-EXPERIMENT_NAME = 'cifar_resnet50'
+EXPERIMENT_NAME = 'cifar_resnet50_adam'
 
 # --->>> Service parameters
 # https://pytorch.org/docs/stable/notes/randomness.html
@@ -44,22 +44,7 @@ device = "cuda"
 # --->>> Training parameters
 BATCH_SIZE = 128
 MAX_EPOCHS = 350
-BASE_LR = 0.1
-
-
-def adjust_learning_rate(optimizer, epoch):
-    if epoch <= 150:
-        lr = BASE_LR
-    elif epoch <= 250:
-        lr = BASE_LR * 0.1
-    elif epoch <= MAX_EPOCHS:
-        lr = BASE_LR * 0.1**2
-    else:
-        assert False
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-    return lr
-
+BASE_LR = 0.01
 
 # model
 model = resnet50(pretrained=False, num_classes=10)
@@ -67,7 +52,7 @@ model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 model.avgpool = nn.AdaptiveAvgPool2d(1)
 model.to(device=device)
 
-optimizer = SGD(model.parameters(), lr=BASE_LR, momentum=0.9, weight_decay=5e-4)
+optimizer = Adam(model.parameters(), lr=BASE_LR, weight_decay=5e-4)
 
 criterion = nn.CrossEntropyLoss()
 
@@ -91,12 +76,6 @@ train_eval_loader = DataLoader(train_subset, batch_size=BATCH_SIZE, shuffle=Fals
 
 
 # --->>> Callbacks
-def update_lr_scheduler(engine):
-    lr = adjust_learning_rate(optimizer, engine.state.epoch)
-    print_with_time("Learning rate: {}".format(lr))
-    writer.add_scalar('lr', lr, global_step=engine.state.epoch)
-
-
 def log_loss_during_training(engine):
     iteration_on_epoch = (engine.state.iteration - 1) % len(train_loader) + 1
     if iteration_on_epoch % log_interval == 0:
@@ -134,8 +113,6 @@ def compute_and_log_metrics_on_val(engine):
 trainer = create_supervised_trainer(model, optimizer, criterion, device=device)
 
 # attach callbacks
-trainer.add_event_handler(Events.EPOCH_STARTED, update_lr_scheduler)
-
 trainer.add_event_handler(Events.ITERATION_STARTED, log_loss_during_training)
 
 trainer.add_event_handler(Events.EPOCH_STARTED, compute_and_log_metrics_on_train)
