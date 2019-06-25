@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+import random
 
 import numpy as np
 
@@ -27,8 +28,13 @@ print(' ================= Initialization ================= ')
 EXPERIMENT_NAME = 'cifar_resnet50'
 
 # --->>> Service parameters
+# https://pytorch.org/docs/stable/notes/randomness.html
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+random.seed(0xDEADFACE)
 np.random.seed(0xDEADFACE)
 torch.manual_seed(0xDEADFACE)
+
 output_path = './snapshots/'
 writer = SummaryWriter(os.path.join(output_path, 'tensorboard', EXPERIMENT_NAME))
 log_interval = 50
@@ -87,10 +93,8 @@ train_eval_loader = DataLoader(train_subset, batch_size=BATCH_SIZE, shuffle=Fals
 # --->>> Callbacks
 def update_lr_scheduler(engine):
     lr = adjust_learning_rate(optimizer, engine.state.epoch)
-    iteration_on_epoch = (engine.state.iteration - 1) % len(train_loader) + 1
-    if iteration_on_epoch % log_interval == 0:
-        print_with_time("Learning rate: {}".format(lr))
-        writer.add_scalar('lr', lr, global_step=engine.state.iteration)
+    print_with_time("Learning rate: {}".format(lr))
+    writer.add_scalar('lr', lr, global_step=engine.state.epoch)
 
 
 def log_loss_during_training(engine):
@@ -130,7 +134,7 @@ def compute_and_log_metrics_on_val(engine):
 trainer = create_supervised_trainer(model, optimizer, criterion, device=device)
 
 # attach callbacks
-trainer.add_event_handler(Events.ITERATION_STARTED, update_lr_scheduler)
+trainer.add_event_handler(Events.EPOCH_STARTED, update_lr_scheduler)
 
 trainer.add_event_handler(Events.ITERATION_STARTED, log_loss_during_training)
 
