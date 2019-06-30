@@ -113,13 +113,14 @@ def compute_and_log_metrics_on_val(engine):
 trainer = create_supervised_trainer(model, optimizer, criterion, device=device)
 
 # attach callbacks
+trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_train)
+trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_val)
+
 trainer.add_event_handler(Events.ITERATION_STARTED, log_loss_during_training)
 
-trainer.add_event_handler(Events.EPOCH_STARTED, compute_and_log_metrics_on_train)
-trainer.add_event_handler(Events.EPOCH_STARTED, compute_and_log_metrics_on_val)
+trainer.add_event_handler(Events.EPOCH_COMPLETED, compute_and_log_metrics_on_train)
+trainer.add_event_handler(Events.EPOCH_COMPLETED, compute_and_log_metrics_on_val)
 
-trainer.add_event_handler(Events.COMPLETED, compute_and_log_metrics_on_train)
-trainer.add_event_handler(Events.COMPLETED, compute_and_log_metrics_on_val)
 trainer.add_event_handler(Events.COMPLETED,
                           ModelCheckpoint('snapshots/', 'iteration', save_interval=1),
                           {"model": model, "optimizer": optimizer})
