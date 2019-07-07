@@ -1,7 +1,6 @@
 import os
 from datetime import datetime
 import random
-import math
 
 import numpy as np
 
@@ -9,15 +8,16 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Subset
-from torch.optim.optimizer import Optimizer
 from torchvision import transforms
 from torchvision.models import resnet50
 from torchvision.datasets import CIFAR10
+from tensorboardX import SummaryWriter
 from ignite.engine import Events
 from ignite.engine import create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Loss, Accuracy
 from ignite.handlers import ModelCheckpoint
-from tensorboardX import SummaryWriter
+
+from utils.optim import AdamW
 
 
 def print_with_time(string):
@@ -25,76 +25,8 @@ def print_with_time(string):
     print(time + ' - ' + string)
 
 
-class AdamW(Optimizer):
-    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.):
-        if not 0.0 <= lr:
-            raise ValueError("Invalid learning rate: {}".format(lr))
-        if not 0.0 <= eps:
-            raise ValueError("Invalid epsilon value: {}".format(eps))
-        if not 0.0 <= betas[0] < 1.0:
-            raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
-        if not 0.0 <= betas[1] < 1.0:
-            raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
-        defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
-        super(AdamW, self).__init__(params, defaults)
-
-    def __setstate__(self, state):
-        super(AdamW, self).__setstate__(state)
-
-    def step(self, closure=None):
-        """Performs a single optimization step.
-
-        Arguments:
-            closure (callable, optional): A closure that reevaluates the model
-                and returns the loss.
-        """
-        loss = None
-        if closure is not None:
-            loss = closure()
-
-        for group in self.param_groups:
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-                grad = p.grad.data
-                if grad.is_sparse:
-                    raise RuntimeError('Adam does not support sparse gradients, please consider SparseAdam instead')
-
-                if group['weight_decay'] != 0:
-                    p.data.mul_(1. - group['lr'] * group['weight_decay'])
-
-                state = self.state[p]
-
-                # State initialization
-                if len(state) == 0:
-                    state['step'] = 0
-                    # Exponential moving average of gradient values
-                    state['exp_avg'] = torch.zeros_like(p.data)
-                    # Exponential moving average of squared gradient values
-                    state['exp_avg_sq'] = torch.zeros_like(p.data)
-
-                exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
-                beta1, beta2 = group['betas']
-
-                state['step'] += 1
-
-                # Decay the first and second moment running average coefficient
-                exp_avg.mul_(beta1).add_(1 - beta1, grad)
-                exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
-                denom = exp_avg_sq.sqrt().add_(group['eps'])
-
-                bias_correction1 = 1 - beta1 ** state['step']
-                bias_correction2 = 1 - beta2 ** state['step']
-                step_size = group['lr'] * math.sqrt(bias_correction2) / bias_correction1
-
-                p.data.addcdiv_(-step_size, exp_avg, denom)
-
-        return loss
-
-
 print(' ================= Initialization ================= ')
 EXPERIMENT_NAME = 'cifar_resnet50_adamw'
-
 # --->>> Service parameters
 # https://pytorch.org/docs/stable/notes/randomness.html
 torch.backends.cudnn.deterministic = True
@@ -108,27 +40,11 @@ writer = SummaryWriter(os.path.join(output_path, 'tensorboard', EXPERIMENT_NAME)
 log_interval = 50
 device = "cuda"
 
-
 # --->>> Training parameters
 BATCH_SIZE = 128
 MAX_EPOCHS = 350
 BASE_LR = 0.1
 WD = 5e-4
-
-
-def adjust_learning_rate(optimizer, epoch):
-    if epoch <= 150:
-        lr = BASE_LR
-    elif epoch <= 250:
-        lr = BASE_LR * 0.1
-    elif epoch <= MAX_EPOCHS:
-        lr = BASE_LR * 0.1**2
-    else:
-        assert False
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-    return lr
-
 
 # model
 model = resnet50(pretrained=False, num_classes=10)
@@ -139,6 +55,20 @@ model.to(device=device)
 optimizer = AdamW(model.parameters(), lr=BASE_LR, betas=(0.9,0.99), weight_decay=WD)
 
 criterion = nn.CrossEntropyLoss()
+
+# scheduler
+def adjust_hyperparameters(optimizer, epoch):
+    if epoch <= 150:
+        lr = BASE_LR
+    elif epoch <= 250:
+        lr = BASE_LR * 0.1
+    elif epoch <= MAX_EPOCHS:
+        lr = BASE_LR * 0.1 ** 2
+    else:
+        assert False
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+    return lr
 
 # data
 transform_train = transforms.Compose([transforms.RandomCrop(32, padding=4),
@@ -160,8 +90,8 @@ train_eval_loader = DataLoader(train_subset, batch_size=BATCH_SIZE, shuffle=Fals
 
 
 # --->>> Callbacks
-def update_lr_scheduler(engine):
-    lr = adjust_learning_rate(optimizer, engine.state.epoch)
+def update_hyperparameters(engine):
+    lr = adjust_hyperparameters(optimizer, engine.state.epoch)
     print_with_time("Learning rate: {}".format(lr))
     writer.add_scalar('lr', lr, global_step=engine.state.epoch)
 
@@ -206,7 +136,7 @@ trainer = create_supervised_trainer(model, optimizer, criterion, device=device)
 trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_train)
 trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_val)
 
-trainer.add_event_handler(Events.EPOCH_STARTED, update_lr_scheduler)
+trainer.add_event_handler(Events.EPOCH_STARTED, update_hyperparameters)
 
 trainer.add_event_handler(Events.ITERATION_STARTED, log_loss_during_training)
 
@@ -214,7 +144,7 @@ trainer.add_event_handler(Events.EPOCH_COMPLETED, compute_and_log_metrics_on_tra
 trainer.add_event_handler(Events.EPOCH_COMPLETED, compute_and_log_metrics_on_val)
 
 trainer.add_event_handler(Events.COMPLETED,
-                          ModelCheckpoint('snapshots/', 'iteration', save_interval=1),
+                          ModelCheckpoint(output_path, 'iteration', save_interval=1),
                           {"model": model, "optimizer": optimizer})
 
 print(' ================= Training! ================= ')
