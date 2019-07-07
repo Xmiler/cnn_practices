@@ -113,7 +113,7 @@ device = "cuda"
 BATCH_SIZE = 128
 MAX_EPOCHS = 350
 BASE_LR = 0.1
-WD = 1e-2
+WD = 5e-4
 
 
 def adjust_learning_rate(optimizer, epoch):
