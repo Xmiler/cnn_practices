@@ -26,7 +26,7 @@ def print_with_time(string):
 
 
 print(' ================= Initialization ================= ')
-EXPERIMENT_NAME = 'cifar_resnet50_adamw'
+EXPERIMENT_NAME = 'cifar_resnet50_fastaiapproach'
 # --->>> Service parameters
 # https://pytorch.org/docs/stable/notes/randomness.html
 torch.backends.cudnn.deterministic = True
@@ -42,7 +42,7 @@ device = "cuda"
 
 # --->>> Training parameters
 BATCH_SIZE = 128
-MAX_EPOCHS = 350
+MAX_EPOCHS = 100
 BASE_LR = 0.1
 WD = 5e-4
 
@@ -52,23 +52,54 @@ model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 model.avgpool = nn.AdaptiveAvgPool2d(1)
 model.to(device=device)
 
-optimizer = AdamW(model.parameters(), lr=BASE_LR, betas=(0.9,0.99), weight_decay=WD)
+optimizer = AdamW(model.parameters(), lr=BASE_LR, betas=(0.95, 0.99), weight_decay=WD)
 
 criterion = nn.CrossEntropyLoss()
 
-# scheduler
-def adjust_hyperparameters(optimizer, epoch):
-    if epoch <= 150:
-        lr = BASE_LR
-    elif epoch <= 250:
-        lr = BASE_LR * 0.1
-    elif epoch <= MAX_EPOCHS:
-        lr = BASE_LR * 0.1 ** 2
-    else:
-        assert False
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-    return lr
+
+class DefaultSchedulerFastAI():
+    moms = (0.95, 0.85)
+    div_factor = 25.
+    pct_start = 0.3
+    final_div = div_factor * 1e4
+
+    def __init__(self, cyc_len, lr_max):
+        self.cyc_len = cyc_len
+        self.lr_max = lr_max
+
+    def __call__(self, engine):
+        a1 = int(self.cyc_len * self.pct_start)
+        a2 = self.cyc_len-a1
+
+        if 0 < engine.state.iteration <= a1:
+            pct = (engine.state.iteration - 1) / a1
+            lr_st = self.lr_max / self.div_factor
+            lr_en = self.lr_max
+            mom_st = self.moms[0]
+            mom_en = self.moms[1]
+        elif a1 < engine.state.iteration <= self.cyc_len:
+            pct = (engine.state.iteration -1 - a1) / a2
+            lr_st = self.lr_max
+            lr_en = self.lr_max/self.final_div
+            mom_st = self.moms[1]
+            mom_en = self.moms[0]
+        else:
+            assert False
+
+        cos_out = 1 - np.cos(np.pi * pct)
+        lr = lr_st + ((lr_en - lr_st) / 2) * cos_out
+        mom = mom_st + ((mom_en - mom_st) / 2) * cos_out
+
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+            param_group['betas'] = (mom, 0.99)
+
+        iteration_on_epoch = (engine.state.iteration - 1) % len(train_loader) + 1
+        if iteration_on_epoch % log_interval == 0:
+            writer.add_scalar('lr', lr, global_step=engine.state.iteration)
+            writer.add_scalar('mom0', mom, global_step=engine.state.iteration)
+
+
 
 # data
 transform_train = transforms.Compose([transforms.RandomCrop(32, padding=4),
@@ -90,12 +121,6 @@ train_eval_loader = DataLoader(train_subset, batch_size=BATCH_SIZE, shuffle=Fals
 
 
 # --->>> Callbacks
-def update_hyperparameters(engine):
-    lr = adjust_hyperparameters(optimizer, engine.state.epoch)
-    print_with_time("Learning rate: {}".format(lr))
-    writer.add_scalar('lr', lr, global_step=engine.state.epoch)
-
-
 def log_loss_during_training(engine):
     iteration_on_epoch = (engine.state.iteration - 1) % len(train_loader) + 1
     if iteration_on_epoch % log_interval == 0:
@@ -136,8 +161,7 @@ trainer = create_supervised_trainer(model, optimizer, criterion, device=device)
 trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_train)
 trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_val)
 
-trainer.add_event_handler(Events.EPOCH_STARTED, update_hyperparameters)
-
+trainer.add_event_handler(Events.ITERATION_STARTED, DefaultSchedulerFastAI(MAX_EPOCHS*len(train_loader), BASE_LR))
 trainer.add_event_handler(Events.ITERATION_STARTED, log_loss_during_training)
 
 trainer.add_event_handler(Events.EPOCH_COMPLETED, compute_and_log_metrics_on_train)
