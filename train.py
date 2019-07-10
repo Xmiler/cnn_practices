@@ -43,7 +43,7 @@ device = "cuda"
 # --->>> Training parameters
 BATCH_SIZE = 128
 MAX_EPOCHS = 50
-BASE_LR = 0.1
+BASE_LR = 0.01
 WD = 5e-4
 
 # model
