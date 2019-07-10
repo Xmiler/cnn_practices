@@ -31,9 +31,9 @@ EXPERIMENT_NAME = 'cifar_resnet50_fastaiapproach'
 # https://pytorch.org/docs/stable/notes/randomness.html
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-random.seed(0xDEADFACE)
-np.random.seed(0xDEADFACE)
-torch.manual_seed(0xDEADFACE)
+random.seed(1)
+np.random.seed(1)
+torch.manual_seed(1)
 
 output_path = './snapshots/'
 writer = SummaryWriter(os.path.join(output_path, 'tensorboard', EXPERIMENT_NAME))
