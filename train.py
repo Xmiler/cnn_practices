@@ -31,9 +31,9 @@ EXPERIMENT_NAME = 'cifar_resnet50_fastaiapproach'
 # https://pytorch.org/docs/stable/notes/randomness.html
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-random.seed(1)
-np.random.seed(1)
-torch.manual_seed(1)
+random.seed(0xDEADFACE)
+np.random.seed(0xDEADFACE)
+torch.manual_seed(0xDEADFACE)
 
 output_path = './snapshots/'
 writer = SummaryWriter(os.path.join(output_path, 'tensorboard', EXPERIMENT_NAME))
@@ -43,8 +43,8 @@ device = "cuda"
 # --->>> Training parameters
 BATCH_SIZE = 128
 MAX_EPOCHS = 50
-BASE_LR = 0.01
-WD = 5e-4
+BASE_LR = 0.1
+WD = 5e-5
 
 # model
 model = resnet50(pretrained=False, num_classes=10)
