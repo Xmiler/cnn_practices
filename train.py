@@ -17,7 +17,8 @@ from ignite.engine import create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Loss, Accuracy
 from ignite.handlers import ModelCheckpoint
 
-from utils.optim import AdamW
+# from utils.optim import AdamW
+from torch.optim import Adam
 
 
 def print_with_time(string):
@@ -43,8 +44,8 @@ device = "cuda"
 # --->>> Training parameters
 BATCH_SIZE = 128
 MAX_EPOCHS = 50
-BASE_LR = 0.1
-WD = 5e-5
+BASE_LR = 0.01
+WD = 5e-4
 
 # model
 model = resnet50(pretrained=False, num_classes=10)
@@ -52,7 +53,7 @@ model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 model.avgpool = nn.AdaptiveAvgPool2d(1)
 model.to(device=device)
 
-optimizer = AdamW(model.parameters(), lr=BASE_LR, betas=(0.95, 0.99), weight_decay=WD)
+optimizer = Adam(model.parameters(), lr=BASE_LR, betas=(0.95, 0.99), weight_decay=WD)
 
 criterion = nn.CrossEntropyLoss()
 
