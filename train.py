@@ -18,7 +18,7 @@ from ignite.metrics import Loss, Accuracy
 from ignite.handlers import ModelCheckpoint
 
 from utils.optim import AdamW
-from utils.scheduler import DefaultSchedulerFastAI
+from utils.scheduler import Linear
 
 
 def print_with_time(string):
@@ -27,7 +27,7 @@ def print_with_time(string):
 
 
 print(' ================= Initialization ================= ')
-EXPERIMENT_NAME = 'cifar_resnet50_fastaiapproach'
+EXPERIMENT_NAME = 'cifar_resnet50_linearlr'
 # --->>> Service parameters
 # https://pytorch.org/docs/stable/notes/randomness.html
 torch.backends.cudnn.deterministic = True
@@ -56,8 +56,6 @@ model.to(device=device)
 optimizer = AdamW(model.parameters(), lr=BASE_LR, betas=(0.95, 0.99), weight_decay=WD)
 
 criterion = nn.CrossEntropyLoss()
-
-
 
 # data
 transform_train = transforms.Compose([transforms.RandomCrop(32, padding=4),
@@ -119,7 +117,7 @@ trainer = create_supervised_trainer(model, optimizer, criterion, device=device)
 trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_train)
 trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_val)
 
-trainer.add_event_handler(Events.ITERATION_STARTED, DefaultSchedulerFastAI(optimizer, MAX_EPOCHS*len(train_loader), BASE_LR, len(train_loader), writer))
+trainer.add_event_handler(Events.ITERATION_STARTED, Linear(optimizer, MAX_EPOCHS, BASE_LR, len(train_loader), writer))
 trainer.add_event_handler(Events.ITERATION_STARTED, log_loss_during_training)
 
 trainer.add_event_handler(Events.EPOCH_COMPLETED, compute_and_log_metrics_on_train)

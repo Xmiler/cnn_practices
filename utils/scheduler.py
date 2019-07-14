@@ -1,3 +1,6 @@
+from typing import Any
+from dataclasses import dataclass
+
 import numpy as np
 
 
@@ -47,3 +50,21 @@ class DefaultSchedulerFastAI():
         if iteration_on_epoch % log_interval == 0:
             self.writer.add_scalar('lr', lr, global_step=engine.state.iteration)
             self.writer.add_scalar('mom0', mom, global_step=engine.state.iteration)
+
+
+@dataclass
+class Linear():
+    optimizer: Any
+    epoches_num: int
+    lr_init: float
+    epoch_size: int
+    writer: Any
+
+    def __call__(self, engine):
+        lr = (self.epoches_num * self.epoch_size - engine.state.iteration - 1) * self.lr_init / (self.epoches_num * self.epoch_size)
+        for param_group in self.optimizer.param_groups:
+            param_group['lr'] = lr
+
+        iteration_on_epoch = (engine.state.iteration - 1) % self.epoch_size + 1
+        if iteration_on_epoch % log_interval == 0:
+            self.writer.add_scalar('lr', lr, global_step=engine.state.iteration)
