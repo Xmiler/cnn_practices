@@ -44,7 +44,7 @@ device = "cuda"
 # --->>> Training parameters
 BATCH_SIZE = 128
 MAX_EPOCHS = 100
-BASE_LR = 0.1
+BASE_LR = 0.01
 WD = 5e-4
 
 # model
@@ -118,7 +118,7 @@ trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_train)
 trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_val)
 
 trainer.add_event_handler(Events.ITERATION_STARTED, DefaultSchedulerFastAI(optimizer, BASE_LR, MAX_EPOCHS//2, len(train_loader), writer, start_iteration=1))
-trainer.add_event_handler(Events.ITERATION_STARTED, DefaultSchedulerFastAI(optimizer, BASE_LR*0.1, MAX_EPOCHS//2, len(train_loader), writer, start_iteration=(MAX_EPOCHS//2)*len(train_loader)+1))
+trainer.add_event_handler(Events.ITERATION_STARTED, DefaultSchedulerFastAI(optimizer, BASE_LR, MAX_EPOCHS//2, len(train_loader), writer, start_iteration=(MAX_EPOCHS//2)*len(train_loader)+1))
 trainer.add_event_handler(Events.ITERATION_STARTED, log_loss_during_training)
 
 trainer.add_event_handler(Events.EPOCH_COMPLETED, compute_and_log_metrics_on_train)
