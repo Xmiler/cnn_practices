@@ -18,7 +18,7 @@ from ignite.metrics import Loss, Accuracy
 from ignite.handlers import ModelCheckpoint
 
 from utils.optim import AdamW
-from utils.scheduler import Linear
+from utils.scheduler import DefaultSchedulerFastAI
 
 
 def print_with_time(string):
@@ -27,7 +27,7 @@ def print_with_time(string):
 
 
 print(' ================= Initialization ================= ')
-EXPERIMENT_NAME = 'cifar_resnet50_linearlr'
+EXPERIMENT_NAME = 'cifar_resnet50'
 # --->>> Service parameters
 # https://pytorch.org/docs/stable/notes/randomness.html
 torch.backends.cudnn.deterministic = True
@@ -43,8 +43,8 @@ device = "cuda"
 
 # --->>> Training parameters
 BATCH_SIZE = 128
-MAX_EPOCHS = 50
-BASE_LR = 0.01
+MAX_EPOCHS = 100
+BASE_LR = 0.1
 WD = 5e-4
 
 # model
@@ -117,7 +117,8 @@ trainer = create_supervised_trainer(model, optimizer, criterion, device=device)
 trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_train)
 trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_val)
 
-trainer.add_event_handler(Events.ITERATION_STARTED, Linear(optimizer, MAX_EPOCHS, BASE_LR, len(train_loader), writer))
+trainer.add_event_handler(Events.ITERATION_STARTED, DefaultSchedulerFastAI(optimizer, BASE_LR, MAX_EPOCHS//2, len(train_loader), writer, start_iteration=1))
+trainer.add_event_handler(Events.ITERATION_STARTED, DefaultSchedulerFastAI(optimizer, BASE_LR*0.1, MAX_EPOCHS//2, len(train_loader), writer, start_iteration=(MAX_EPOCHS//2)*len(train_loader)+1))
 trainer.add_event_handler(Events.ITERATION_STARTED, log_loss_during_training)
 
 trainer.add_event_handler(Events.EPOCH_COMPLETED, compute_and_log_metrics_on_train)

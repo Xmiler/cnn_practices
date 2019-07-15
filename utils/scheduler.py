@@ -6,31 +6,37 @@ import numpy as np
 
 log_interval = 50
 
+@dataclass
 class DefaultSchedulerFastAI():
+    optimizer: Any
+    lr_max: float
+    cyc_len: int
+    epoch_size: int
+    writer: Any
+    start_iteration: int = 1
+
     moms = (0.95, 0.85)
     div_factor = 25.
     pct_start = 0.3
     final_div = div_factor * 1e4
 
-    def __init__(self, optimizer, cyc_len, lr_max, epoch_size, writer):
-        self.optimizer = optimizer
-        self.cyc_len = cyc_len
-        self.lr_max = lr_max
-        self.epoch_size = epoch_size
-        self.writer = writer
-
     def __call__(self, engine):
-        a1 = int(self.cyc_len * self.pct_start)
-        a2 = self.cyc_len-a1
+        iterations_num = self.cyc_len * self.epoch_size
 
-        if 0 < engine.state.iteration <= a1:
-            pct = (engine.state.iteration - 1) / a1
+        if not (self.start_iteration <= engine.state.iteration < self.start_iteration + iterations_num):
+            return
+
+        a1 = int(iterations_num * self.pct_start)
+        a2 = iterations_num - a1
+
+        if 0 <= engine.state.iteration - self.start_iteration < a1:
+            pct = (engine.state.iteration - self.start_iteration) / a1
             lr_st = self.lr_max / self.div_factor
             lr_en = self.lr_max
             mom_st = self.moms[0]
             mom_en = self.moms[1]
-        elif a1 < engine.state.iteration <= self.cyc_len:
-            pct = (engine.state.iteration -1 - a1) / a2
+        elif a1 <= engine.state.iteration - self.start_iteration < iterations_num:
+            pct = (engine.state.iteration - self.start_iteration - a1) / a2
             lr_st = self.lr_max
             lr_en = self.lr_max/self.final_div
             mom_st = self.moms[1]
@@ -55,8 +61,8 @@ class DefaultSchedulerFastAI():
 @dataclass
 class Linear():
     optimizer: Any
-    epoches_num: int
     lr_init: float
+    epoches_num: int
     epoch_size: int
     writer: Any
 
