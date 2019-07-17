@@ -6,6 +6,7 @@ import numpy as np
 
 import torch
 from torch import nn
+from torch.optim import SGD
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Subset
 from torchvision import transforms
@@ -17,7 +18,7 @@ from ignite.engine import create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Loss, Accuracy
 from ignite.handlers import ModelCheckpoint
 
-from utils.optim import AdamW
+# from utils.optim import AdamW
 from utils.scheduler import Linear
 
 
@@ -53,7 +54,7 @@ model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 model.avgpool = nn.AdaptiveAvgPool2d(1)
 model.to(device=device)
 
-optimizer = AdamW(model.parameters(), lr=BASE_LR, betas=(0.95, 0.99), weight_decay=WD)
+optimizer = SGD(model.parameters(), lr=BASE_LR, momentum=0.9, weight_decay=WD)
 
 criterion = nn.CrossEntropyLoss()
 
