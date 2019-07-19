@@ -19,7 +19,7 @@ from ignite.metrics import Loss, Accuracy
 from ignite.handlers import ModelCheckpoint
 
 from utils.optim import AdamW, SGDW
-from utils.scheduler import Linear
+from utils.scheduler import DefaultSchedulerFastAI, Linear
 
 
 def print_with_time(string):
@@ -44,7 +44,7 @@ device = "cuda"
 
 # --->>> Training parameters
 BATCH_SIZE = 128
-MAX_EPOCHS = 100
+MAX_EPOCHS = 150
 BASE_LR = 0.01
 WD = 5e-4
 
@@ -54,7 +54,7 @@ model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 model.avgpool = nn.AdaptiveAvgPool2d(1)
 model.to(device=device)
 
-optimizer = SGDW(model.parameters(), lr=BASE_LR, momentum=0.9, weight_decay=WD)
+optimizer = AdamW(model.parameters(), lr=BASE_LR, betas=(0.95, 0.99), weight_decay=WD)
 
 criterion = nn.CrossEntropyLoss()
 
@@ -118,7 +118,9 @@ trainer = create_supervised_trainer(model, optimizer, criterion, device=device)
 trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_train)
 trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_val)
 
-trainer.add_event_handler(Events.ITERATION_STARTED, Linear(optimizer, BASE_LR, MAX_EPOCHS, len(train_loader), writer))
+trainer.add_event_handler(Events.ITERATION_STARTED, DefaultSchedulerFastAI(optimizer, BASE_LR, MAX_EPOCHS//3, len(train_loader), writer, start_iteration=1))
+trainer.add_event_handler(Events.ITERATION_STARTED, DefaultSchedulerFastAI(optimizer, BASE_LR, MAX_EPOCHS//3, len(train_loader), writer, start_iteration=(MAX_EPOCHS//3)*len(train_loader)+1))
+trainer.add_event_handler(Events.ITERATION_STARTED, DefaultSchedulerFastAI(optimizer, BASE_LR, MAX_EPOCHS//3, len(train_loader), writer, start_iteration=2*(MAX_EPOCHS//3)*len(train_loader)+1))
 trainer.add_event_handler(Events.ITERATION_STARTED, log_loss_during_training)
 
 trainer.add_event_handler(Events.EPOCH_COMPLETED, compute_and_log_metrics_on_train)
