@@ -54,7 +54,7 @@ model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 model.avgpool = nn.AdaptiveAvgPool2d(1)
 model.to(device=device)
 
-optimizer = AdamW(model.parameters(), lr=BASE_LR, betas=(0.95, 0.99), weight_decay=WD)
+optimizer = SGD(model.parameters(), lr=BASE_LR, momentum=0.9, weight_decay=WD)
 
 criterion = nn.CrossEntropyLoss()
 
