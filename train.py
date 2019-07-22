@@ -45,7 +45,7 @@ device = "cuda"
 # --->>> Training parameters
 BATCH_SIZE = 128
 MAX_EPOCHS = 350
-BASE_LR = 0.1
+BASE_LR = 0.01
 WD = 5e-4
 
 # model
@@ -54,7 +54,7 @@ model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 model.avgpool = nn.AdaptiveAvgPool2d(1)
 model.to(device=device)
 
-optimizer = SGD(model.parameters(), lr=BASE_LR, momentum=0.9, weight_decay=WD)
+optimizer = AdamW(model.parameters(), lr=BASE_LR, betas=(0.95, 0.99), weight_decay=WD)
 
 criterion = nn.CrossEntropyLoss()
 
