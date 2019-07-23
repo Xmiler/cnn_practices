@@ -46,7 +46,7 @@ device = "cuda"
 BATCH_SIZE = 128
 MAX_EPOCHS = 350
 BASE_LR = 0.01
-WD = 5e-4
+WD = 5e-3
 
 # model
 model = resnet50(pretrained=False, num_classes=10)
