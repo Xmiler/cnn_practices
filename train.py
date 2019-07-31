@@ -10,7 +10,7 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Subset
 from torchvision import transforms
-from torchvision.models import resnet50
+from torchvision.models import resnext50_32x4d
 from torchvision.datasets import CIFAR10
 from tensorboardX import SummaryWriter
 from ignite.engine import Events
@@ -28,7 +28,7 @@ def print_with_time(string):
 
 
 print(' ================= Initialization ================= ')
-EXPERIMENT_NAME = 'cifar_resnet50'
+EXPERIMENT_NAME = 'cifar_resnext50'
 # --->>> Service parameters
 # https://pytorch.org/docs/stable/notes/randomness.html
 torch.backends.cudnn.deterministic = True
@@ -45,16 +45,16 @@ device = "cuda"
 # --->>> Training parameters
 BATCH_SIZE = 128
 MAX_EPOCHS = 350
-BASE_LR = 0.01
-WD = 5e-2
+BASE_LR = 0.1
+WD = 5e-4
 
 # model
-model = resnet50(pretrained=False, num_classes=10)
+model = resnext50_32x4d(pretrained=False, num_classes=10)
 model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
 model.avgpool = nn.AdaptiveAvgPool2d(1)
 model.to(device=device)
 
-optimizer = AdamW(model.parameters(), lr=BASE_LR, betas=(0.95, 0.99), weight_decay=WD)
+optimizer = SGD(model.parameters(), lr=BASE_LR, momentum=0.9, weight_decay=WD)
 
 criterion = nn.CrossEntropyLoss()
 
