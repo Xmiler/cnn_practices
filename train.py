@@ -46,7 +46,7 @@ device = "cuda"
 BATCH_SIZE = 128
 MAX_EPOCHS = 350
 BASE_LR = 0.01
-WD = 5e-2
+WD = 5e-4
 
 # model
 model = resnet50(pretrained=False, num_classes=10)
@@ -118,7 +118,7 @@ trainer = create_supervised_trainer(model, optimizer, criterion, device=device)
 trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_train)
 trainer.add_event_handler(Events.STARTED, compute_and_log_metrics_on_val)
 
-trainer.add_event_handler(Events.ITERATION_STARTED, Linear(optimizer, BASE_LR, MAX_EPOCHS, len(train_loader), writer))
+trainer.add_event_handler(Events.ITERATION_STARTED,  DefaultSchedulerFastAI(optimizer, BASE_LR, MAX_EPOCHS, len(train_loader), writer))
 trainer.add_event_handler(Events.ITERATION_STARTED, log_loss_during_training)
 
 trainer.add_event_handler(Events.EPOCH_COMPLETED, compute_and_log_metrics_on_train)
